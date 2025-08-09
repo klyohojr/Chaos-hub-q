@@ -1,0 +1,9 @@
+{
+  "name": "Chaos Hub — Full Chaos RPG",
+  "short_name": "Chaos Hub",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#0b0b0f",
+  "theme_color": "#ffd400",
+  "icons": []
+}

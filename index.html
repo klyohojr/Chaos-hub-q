@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0b0f">
+<title>Chaos Hub — Full Chaos RPG</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<style>
+:root{--bg:#0b0b0f;--panel:#11131a;--ink:#f5f7ff;--muted:#a6adbb;--accent:#ffd400;--accent2:#8b5cf6;--rad:16px;--shadow:0 10px 30px rgba(0,0,0,.35)}
+*{box-sizing:border-box} html,body{margin:0;background:radial-gradient(1200px 600px at 10% -10%, rgba(255,212,0,.08), transparent 60%), radial-gradient(800px 500px at 120% 10%, rgba(139,92,246,.1), transparent 50%), var(--bg); color:var(--ink); font-family:-apple-system,Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+header{position:sticky;top:0;background:rgba(11,11,15,.7);backdrop-filter: blur(8px);border-bottom:1px solid #1b1e28;padding:12px 16px}
+h1{margin:0;font-size:18px;display:flex;gap:10px;align-items:center}
+main{max-width:1100px;margin:0 auto;padding:18px;display:grid;gap:16px}
+.grid{display:grid;gap:16px} @media(min-width:980px){.grid{grid-template-columns:1fr 1fr}}
+.card{background:linear-gradient(180deg, rgba(255,255,255,.02), transparent), var(--panel); border:1px solid #1b1e28; border-radius:var(--rad); padding:16px; box-shadow:var(--shadow)}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.muted{color:var(--muted)} .big{font-size:28px;font-weight:900}
+.bar{height:10px;background:#0c0f17;border:1px solid #1f2740;border-radius:999px;overflow:hidden} .fill{height:100%;background:linear-gradient(90deg,var(--accent),#ffe56b);width:0%}
+.tabs{display:flex;gap:8px;margin-bottom:10px} .tabs button{padding:10px;border-radius:12px;border:1px solid #2a3150;background:#171b29;color:#f5f7ff} .tabs button.active{outline:2px solid var(--accent)}
+button{padding:10px 12px;border-radius:12px;border:1px solid #2a3150;background:#171b29;color:#f5f7ff;font-weight:700}
+button.primary{background:linear-gradient(180deg, #ffe56b, #ffd400); color:#111; border-color:#caa900}
+input,textarea{width:100%;background:#0f1320;color:var(--ink);border:1px solid #27304b;padding:10px;border-radius:12px}
+.list{display:grid;gap:8px} .item{padding:10px;background:#0f1320;border:1px solid #242b3f;border-radius:12px}
+canvas{max-width:100%;background:#070a12;border:1px dashed #2a3150;border-radius:12px}
+.footer{text-align:center;padding:24px;color:var(--muted);font-size:12px}
+</style>
+</head>
+<body>
+<header><h1>Chaos Hub — Full Chaos RPG <span class="muted">Live Sync</span></h1></header>
+
+<main>
+<section class="card">
+  <h2>Dashboard</h2>
+  <div class="row">
+    <div>XP: <span id="xpVal" class="big">0</span></div>
+    <div>Level: <span id="lvlVal" class="big">0</span></div>
+    <div>Mischief: <span id="mischiefVal" class="big">0</span></div>
+    <div>Streak: <span id="streakVal" class="big">0</span></div>
+  </div>
+  <div class="bar" style="margin-top:10px"><div id="xpFill" class="fill"></div></div>
+  <div class="muted" id="xpHint">0 / 100 to next level</div>
+</section>
+
+<section class="grid">
+  <section class="card">
+    <h2>Random Chaos Button</h2>
+    <div class="row">
+      <button class="primary" onclick="newQuest()">CHAOS</button>
+      <button onclick="temptationTest()">Temptation Test</button>
+    </div>
+    <p id="questText" style="margin-top:12px;"></p>
+    <p id="questGain" class="muted"></p>
+    <div id="history" class="list"></div>
+  </section>
+
+  <section class="card">
+    <h2>Reward Roulette</h2>
+    <div class="row">
+      <button onclick="spinReward()">🎡 Spin</button>
+      <button onclick="editRewards()">✏️ Edit Rewards</button>
+    </div>
+    <p id="rewardResult" style="margin-top:12px;"></p>
+    <div class="bar" style="margin-top:10px"><div id="switchFill" class="fill" style="background:linear-gradient(90deg,#8b5cf6,#ffd400)"></div></div>
+    <div class="muted" id="switchHint">Milestone 0%</div>
+  </section>
+</section>
+
+<section class="grid">
+  <section class="card">
+    <h2>RPG: Quests, Debuffs & Badges</h2>
+    <div class="tabs">
+      <button id="tabDaily" class="active" onclick="switchTab('daily')">Daily</button>
+      <button id="tabWeekly" onclick="switchTab('weekly')">Weekly</button>
+      <button id="tabDebuffs" onclick="switchTab('debuffs')">Debuffs</button>
+      <button id="tabBadges" onclick="switchTab('badges')">Badges</button>
+    </div>
+    <div id="rpgArea"></div>
+  </section>
+
+  <section class="card">
+    <h2>Strange Drip + Poster Generator</h2>
+    <div class="row">
+      <input id="designTitle" placeholder="Design title">
+      <button onclick="addDesign()">Add</button>
+    </div>
+    <div class="row" style="margin-top:10px;">
+      <input id="prompt" placeholder="Poster prompt (offline style)">
+      <button onclick="generateCanvas()">🎨 Generate Poster</button>
+    </div>
+    <canvas id="canvas" width="900" height="900"></canvas>
+    <div class="row" style="margin-top:10px;">
+      <button onclick="downloadCanvas()">Download</button>
+      <button onclick="randomCaption()">Generate Caption</button>
+    </div>
+    <textarea id="captionOut" rows="3" placeholder="Caption will appear here…"></textarea>
+    <div id="dropList" class="list" style="margin-top:12px;"></div>
+  </section>
+</section>
+
+<section class="card">
+  <h2>Settings & Data</h2>
+  <div class="row">
+    <button onclick="exportData()">Export</button>
+    <button onclick="resetAll()">Reset</button>
+  </div>
+  <div class="row" style="margin-top:10px">
+    <input id="userId" placeholder="User ID for sync (e.g., kenny)">
+    <button onclick="saveUser()">Save User</button>
+  </div>
+  <div class="muted">XP sync posts to /api/xp?user=YOUR_ID (public).</div>
+</section>
+
+<div class="footer">Chaos Hub — Full Chaos RPG v1 • Offline-first • Add to Home Screen</div>
+</main>
+
+<script>
+const store={get:(k,d)=>{try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}},set:(k,v)=>localStorage.setItem(k,JSON.stringify(v))};
+
+const profile = store.get('profile',{xp:0,mischief:0,streak:0,lastQuestDate:null,level:0,jackpotOdds:0.08,switchProgress:0,userId:'kenny'});
+const quests = store.get('quests',[]);
+let rewards = store.get('rewards',[
+  {name:'Iced coffee',value:1},
+  {name:'Snack splurge',value:1},
+  {name:'MTG mini-pack (budget)',value:2},
+  {name:'30-min guilt-free break',value:1},
+  {name:'You get… a high-five from Donnie',value:0},
+  {name:'Jackpot: $20 fun budget',value:10}
+]);
+const RPG = store.get('RPG',{
+  daily:[
+    {id:'dash2h',text:'DoorDash 2 hours or plan when',xp:10},
+    {id:'noSpend',text:'No-spend window (1 hour)',xp:9},
+    {id:'petCare',text:'Donnie care (walk/play/etc.)',xp:8}
+  ],
+  weekly:[
+    {id:'payDebt',text:'Debt payment (Cash App / Atlas / Credit One)',xp:15},
+    {id:'bills',text:'Priority bills: Rent, Car, Phone, Credit One',xp:20},
+    {id:'switchQuest',text:'Legendary Switch 2 checkpoint',xp:25}
+  ],
+  debuffs:[
+    {id:'lateFee',text:'Late fee hit (report)',effect:'-10 XP'},
+    {id:'impulse',text:'Impulse buy over budget',effect:'-8 XP'}
+  ],
+  badges:[
+    {lvl:0,title:'Level 0: Broke but Brave'},
+    {lvl:1,title:'Level 1: Budget Goblin'},
+    {lvl:2,title:'Level 2: Mischief Manager'},
+    {lvl:3,title:'Level 3: Debt-Slayer-in-Training'},
+    {lvl:4,title:'Level 4: Responsible Gremlin'},
+    {lvl:5,title:'Level 5: Switch Summoner'}
+  ]
+});
+
+function xpForLevel(l){return 100+(l*50)}
+function badgeTitle(){const b=RPG.badges.find(x=>x.lvl===profile.level);return b?b.title:`Level ${profile.level}`}
+function updateLevel(){let changed=false;while(profile.xp>=xpForLevel(profile.level)){profile.xp-=xpForLevel(profile.level);profile.level++;toast('Level up! '+badgeTitle());changed=true;syncXp();}if(changed) saveAll();}
+function updateSwitchProgress(){const base=Math.min(100, profile.level*15);const questBoost=Math.min(30, quests.filter(q=>q.text.includes('Debt')||q.text.includes('Legendary')).length*3);profile.switchProgress=Math.min(100, base+questBoost);}
+function todayISO(){return new Date().toISOString().slice(0,10)}
+
+const CHAOS_QUESTS=[
+  {text:'Send a ridiculous meme to someone you haven’t messaged in 3+ months',xp:8,mischief:2},
+  {text:'Rearrange 3 tiny objects in Corey’s space. Observe silently.',xp:10,mischief:4},
+  {text:'Dance for 30 seconds',xp:6,mischief:0},
+  {text:'Organize one chaotic corner (5 minutes)',xp:7,mischief:1},
+  {text:'Compliment a stranger (genuine)',xp:6,mischief:0},
+  {text:'No-spend hour: dodge every impulse',xp:9,mischief:0},
+  {text:'Teach Donnie a new trick',xp:12,mischief:2},
+  {text:'Hide a wholesome sticky note for Corey',xp:7,mischief:2}
+];
+
+function newQuest(){
+  const q=CHAOS_QUESTS[Math.floor(Math.random()*CHAOS_QUESTS.length)];
+  const today=todayISO();
+  if(profile.lastQuestDate!==today){
+    const y=new Date(); y.setDate(y.getDate()-1);
+    profile.streak = (profile.lastQuestDate===y.toISOString().slice(0,10)) ? profile.streak+1 : 1;
+    profile.lastQuestDate=today;
+  }
+  profile.xp+=q.xp; profile.mischief+=q.mischief;
+  quests.unshift({date:new Date().toISOString(),text:q.text,xp:q.xp,mischief:q.mischief});
+  saveAll(); render(); updateLevel(); syncXp();
+  document.getElementById('questText').textContent=q.text;
+  document.getElementById('questGain').textContent=`+${q.xp} XP, +${q.mischief} mischief ✦`;
+}
+
+function temptationTest(){
+  const last=quests[0]; if(!last) return alert('Do a quest first!');
+  if(Math.random()<0.5){ profile.xp+=last.xp; toast(`Temptation resisted! Double XP (+${last.xp})`); }
+  else{ const weird='Speak only in emoji for 10 minutes 👀'; profile.xp+=5; profile.mischief+=3; quests.unshift({date:new Date().toISOString(),text:weird,xp:5,mischief:3}); toast('Weird side-quest accepted!'); }
+  saveAll(); render(); updateLevel(); syncXp();
+}
+
+function spinReward(){
+  const pick=(Math.random()<profile.jackpotOdds)?{name:'JACKPOT: $20 treat budget',value:10}:rewards[Math.floor(Math.random()*rewards.length)];
+  document.getElementById('rewardResult').textContent=`Won: ${pick.name} (${pick.value}★)`;
+  profile.xp+=pick.value; quests.unshift({date:new Date().toISOString(),text:`Reward: ${pick.name}`,xp:pick.value,mischief:0});
+  updateSwitchProgress(); saveAll(); render(); updateLevel(); syncXp();
+}
+
+function editRewards(){const t=prompt('Edit rewards JSON', JSON.stringify(rewards,null,2)); if(!t) return; try{rewards=JSON.parse(t); saveAll(); toast('Rewards updated.');}catch{alert('Invalid JSON')}}
+
+let currentTab='daily';
+function switchTab(t){currentTab=t;['tabDaily','tabWeekly','tabDebuffs','tabBadges'].forEach(id=>document.getElementById(id).classList.remove('active'));document.getElementById('tab'+t.charAt(0).toUpperCase()+t.slice(1)).classList.add('active');renderRPG();}
+function renderRPG(){const a=document.getElementById('rpgArea');if(currentTab==='daily'){a.innerHTML=RPG.daily.map(q=>`<div class="item"><div>${q.text}</div><div class="row"><button onclick="completeRPG('${q.id}','daily',${q.xp})">Complete (+${q.xp} XP)</button></div></div>`).join('');}else if(currentTab==='weekly'){a.innerHTML=RPG.weekly.map(q=>`<div class="item"><div>${q.text}</div><div class="row"><button onclick="completeRPG('${q.id}','weekly',${q.xp})">Complete (+${q.xp} XP)</button></div></div>`).join('');}else if(currentTab==='debuffs'){a.innerHTML=RPG.debuffs.map(d=>`<div class="item"><div>${d.text}</div><div class="muted">${d.effect}</div><div class="row"><button onclick="applyDebuff('${d.id}')">Apply</button></div></div>`).join('');}else{a.innerHTML=RPG.badges.map(b=>`<div class="item"><strong>${b.title}</strong><div class="muted">Unlocks at Level ${b.lvl}</div></div>`).join('');}}
+function completeRPG(id,tier,xp){profile.xp+=xp;quests.unshift({date:new Date().toISOString(),text:`RPG ${tier} quest: ${id}`,xp:xp,mischief:0});updateSwitchProgress();saveAll();render();updateLevel();syncXp();}
+function applyDebuff(id){const d=RPG.debuffs.find(x=>x.id===id); if(!d) return; const val=parseInt(d.effect.replace(/[^-\d]/g,''))||-5; profile.xp=Math.max(0, profile.xp+val); quests.unshift({date:new Date().toISOString(),text:`Debuff: ${d.text}`,xp:val,mischief:0}); saveAll(); render(); syncXp();}
+
+const drops=store.get('drops',[]);
+const CAPS=['🔮 Portals open at inconvenient times.','🪙 Chaotic neutral approved.','👑 The Goblin King demands tribute.','🦴 Donnie said post it, so we posted it.','🌀 Found in a pocket dimension.','✨ Artifact rarity: questionable.'];
+function addDesign(){const t=document.getElementById('designTitle').value.trim(); if(!t) return; drops.unshift({id:crypto.randomUUID(),title:t,createdAt:new Date().toISOString()}); document.getElementById('designTitle').value=''; saveAll(); render();}
+function removeDesign(id){const i=drops.findIndex(x=>x.id===id); if(i>=0) drops.splice(i,1); saveAll(); render();}
+function randomCaption(){document.getElementById('captionOut').value = CAPS[Math.floor(Math.random()*CAPS.length)] + ' #StrangeDrip #goblincore #cryptid #weirdart #trippy';}
+
+function generateCanvas(){const c=document.getElementById('canvas'),ctx=c.getContext('2d');const w=c.width,h=c.height;const g=ctx.createLinearGradient(0,0,w,h);g.addColorStop(0,'#0b0b0f');g.addColorStop(1,'#151a2a');ctx.fillStyle=g;ctx.fillRect(0,0,w,h);for(let i=0;i<14;i++){const x=Math.random()*w,y=Math.random()*h,r=60+Math.random()*200;const hue=Math.floor(40+Math.random()*70);ctx.globalAlpha=0.08+Math.random()*0.12;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle=`hsl(${hue},90%,60%)`;ctx.fill();}ctx.globalAlpha=1;const text=(document.getElementById('prompt').value||'Strange Drip Chaos Poster').toUpperCase();ctx.fillStyle='#ffd400';ctx.font='bold 54px Inter, system-ui, Arial';wrapText(ctx,text,60,h-200,w-120,54);ctx.fillStyle='#a6adbb';ctx.font='16px Inter, system-ui, Arial';ctx.fillText(new Date().toLocaleString(),60,h-40);ctx.fillStyle='#8b5cf6';rounded(ctx,w-220,40,160,40,10);ctx.fill();ctx.fillStyle='#0b0b0f';ctx.font='bold 16px Inter, system-ui, Arial';ctx.fillText('CHAOS HUB',w-200,66);}
+function rounded(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+function wrapText(ctx,text,x,y,maxWidth,lineHeight){const words=text.split(' ');let line='',dy=0;for(let n=0;n<words.length;n++){const test=line+words[n]+' ';if(ctx.measureText(test).width>maxWidth&&n>0){ctx.fillText(line,x,y+dy);line=words[n]+' ';dy+=lineHeight;}else{line=test;}}ctx.fillText(line,x,y+dy);}
+function downloadCanvas(){const link=document.createElement('a'); link.download='chaos-poster.png'; link.href=document.getElementById('canvas').toDataURL('image/png'); link.click();}
+
+// Sync
+async function syncXp(){try{await fetch('/api/xp?user='+encodeURIComponent(profile.userId),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({xp:profile.xp,mischief:profile.mischief,level:profile.level,timestamp:new Date().toISOString()})});}catch(e){}}
+function saveUser(){profile.userId=document.getElementById('userId').value.trim()||profile.userId; saveAll(); alert('User saved: '+profile.userId);}
+
+// Export / Reset
+function exportData(){const blob=new Blob([JSON.stringify({profile,quests,rewards,RPG,drops},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='chaos_hub_data.json';a.click();URL.revokeObjectURL(url);}
+function resetAll(){if(!confirm('Reset all local data?')) return; localStorage.clear(); location.reload();}
+
+function render(){document.getElementById('xpVal').textContent=profile.xp;document.getElementById('mischiefVal').textContent=profile.mischief;document.getElementById('streakVal').textContent=profile.streak;document.getElementById('lvlVal').textContent=profile.level;const need=xpForLevel(profile.level);document.getElementById('xpHint').textContent=`${profile.xp} / ${need} to next level • ${badgeTitle()}`;document.getElementById('xpFill').style.width=Math.min(100,(profile.xp/need)*100)+'%';document.getElementById('history').innerHTML=quests.slice(0,10).map(q=>`<div class="item"><div class="muted">${new Date(q.date).toLocaleString()}</div><div>${q.text}</div><div class="muted">+${q.xp} XP${q.mischief?', +'+q.mischief+' mischief':''}</div></div>`).join('')||'<div class="muted">No entries yet.</div>';document.getElementById('dropList').innerHTML=drops.map(d=>`<div class="item"><div><strong>${d.title}</strong></div><div class="muted">${new Date(d.createdAt).toLocaleString()}</div></div>`).join('')||'<div class="muted">No designs queued.</div>';updateSwitchProgress();document.getElementById('switchFill').style.width=profile.switchProgress+'%';document.getElementById('switchHint').textContent=`Switch 2 milestone ${profile.switchProgress}%`;}
+
+function saveAll(){store.set('profile',profile);store.set('quests',quests);store.set('rewards',rewards);store.set('RPG',RPG);store.set('drops',drops);}
+if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./service-worker.js'));}
+document.getElementById('userId').value=profile.userId;
+switchTab('daily'); render();
+</script>
+</body>
+</html>
