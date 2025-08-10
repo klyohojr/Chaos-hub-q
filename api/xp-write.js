@@ -1,15 +1,10 @@
-// Secure write endpoint I will use (requires X-Write-Token)
+// /api/xp-write.js — secure writer (requires X-Write-Token), stores in KV
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    res.setHeader('Allow', 'POST');
-    return res.status(405).json({ error: 'POST only' });
-  }
+  if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); return res.status(405).json({ error: 'POST only' }); }
 
   const token = process.env.WRITE_TOKEN;
   const provided = (req.headers['x-write-token'] || '').trim();
-  if (!token || provided !== token) {
-    return res.status(401).json({ error: 'Invalid token' });
-  }
+  if (!token || provided !== token) return res.status(401).json({ error: 'Invalid token' });
 
   try {
     const body = await readJson(req);
@@ -24,7 +19,8 @@ export default async function handler(req, res) {
       source: 'assistant'
     };
 
-    await kv('HSET', [`xp:${user}`,
+    await kv('HSET', [
+      `xp:${user}`,
       'xp', String(doc.xp),
       'mischief', String(doc.mischief),
       'level', String(doc.level),
@@ -41,17 +37,24 @@ export default async function handler(req, res) {
 function readJson(req) {
   return new Promise((resolve, reject) => {
     let s = '';
-    req.on('data', c => s += c);
-    req.on('end', () => { try { resolve(JSON.parse(s || '{}')); } catch (e) { reject(e); }});
+    req.on('data', c => (s += c));
+    req.on('end', () => { try { resolve(JSON.parse(s || '{}')); } catch (e) { reject(e); } });
   });
 }
 
 async function kv(cmd, args) {
   const url =
-    process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
+    process.env.KV_REST_API_URL ||
+    process.env.UPSTASH_REDIS_REST_URL ||
+    process.env.KV_URL;
+
   const token =
-    process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
-  if (!url || !token) throw new Error('KV credentials missing.');
+    process.env.KV_REST_API_TOKEN ||
+    process.env.UPSTASH_REDIS_REST_TOKEN ||
+    process.env.KV_REST_API_READ_ONLY_TOKEN; // token with write perms is best
+
+  if (!url || !token) throw new Error('KV credentials missing');
+
   const resp = await fetch(url, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
