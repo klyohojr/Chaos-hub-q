@@ -1,92 +1,45 @@
-// /api/xp.js — Read (GET) + public write (POST) using Upstash/Vercel KV
-// Works with any of these env var pairs you already have:
-// - KV_REST_API_URL / KV_REST_API_TOKEN
-// - UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN
-// (Also tolerates KV_URL and KV_REST_API_READ_ONLY_TOKEN for reads.)
-
 export default async function handler(req, res) {
   const user = (req.query.user || '').trim();
   if (!user) return res.status(400).json({ error: 'Missing ?user=' });
 
+  const BASE = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
+  const TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!BASE || !TOKEN) return res.status(500).json({ error: 'KV env vars missing' });
+
   if (req.method === 'POST') {
     try {
       const body = await readJson(req);
-      const doc = {
-        xp: Number(body.xp) || 0,
-        mischief: Number(body.mischief) || 0,
-        level: Number(body.level) || 0,
-        timestamp: body.timestamp || new Date().toISOString(),
-        source: 'app'
-      };
-      await kvWrite('HSET', [
-        `xp:${user}`,
-        'xp', String(doc.xp),
-        'mischief', String(doc.mischief),
-        'level', String(doc.level),
-        'timestamp', doc.timestamp,
-        'source', doc.source
-      ]);
+      // store as a hash (HSET) with path-style
+      const resp = await fetch(
+        `${BASE}/hset/${encodeURIComponent('xp:'+user)}`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type':'application/json' },
+          body: JSON.stringify([
+            'xp', String(Number(body.xp) || 0),
+            'mischief', String(Number(body.mischief) || 0),
+            'level', String(Number(body.level) || 0),
+            'timestamp', body.timestamp || new Date().toISOString(),
+            'source', 'app'
+          ])
+        }
+      );
+      const data = await resp.json();
+      if (data.error) return res.status(500).json(data);
       return res.status(200).json({ ok: true });
-    } catch (e) {
-      return res.status(400).json({ error: 'Invalid JSON', detail: String(e) });
+    } catch {
+      return res.status(400).json({ error: 'Invalid JSON' });
     }
   }
 
-  // GET — return current values
-  const r = await kvRead('HGETALL', [`xp:${user}`]);
-  const data = hashToObject(r.result);
+  // GET: HGETALL path-style
+  const r = await fetch(`${BASE}/hgetall/${encodeURIComponent('xp:'+user)}`, {
+    headers: { Authorization: `Bearer ${TOKEN}` }
+  });
+  const j = await r.json();
+  const data = j.result ? arrayToObject(j.result) : null;
   return res.status(200).json({ user, data });
 }
 
-function readJson(req) {
-  return new Promise((resolve, reject) => {
-    let s = '';
-    req.on('data', c => (s += c));
-    req.on('end', () => { try { resolve(JSON.parse(s || '{}')); } catch (e) { reject(e); } });
-  });
-}
-
-// ---- KV helpers ----
-function pickUrl() {
-  return process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || process.env.KV_URL;
-}
-function pickReadToken() {
-  return process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_READ_ONLY_TOKEN;
-}
-function pickWriteToken() {
-  return process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN; // prefer write-capable
-}
-
-async function kvRead(cmd, args) {
-  const url = pickUrl();
-  const token = pickReadToken();
-  if (!url || !token) throw new Error('KV credentials missing for READ');
-  const resp = await fetch(url, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ cmd, args })
-  });
-  return resp.json();
-}
-
-async function kvWrite(cmd, args) {
-  const url = pickUrl();
-  const token = pickWriteToken();
-  if (!url || !token) throw new Error('KV credentials missing for WRITE');
-  const resp = await fetch(url, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ cmd, args })
-  });
-  return resp.json();
-}
-
-function hashToObject(arr) {
-  if (!arr || arr.length === 0) return null;
-  const obj = {};
-  for (let i = 0; i < arr.length; i += 2) {
-    const k = arr[i]; const v = arr[i + 1];
-    obj[k] = isFinite(v) ? Number(v) : v;
-  }
-  return obj;
-}
+function readJson(req){return new Promise((res,rej)=>{let s='';req.on('data',c=>s+=c);req.on('end',()=>{try{res(JSON.parse(s||'{}'))}catch(e){rej(e)}})})}
+function arrayToObject(arr){const o={};for(let i=0;i<arr.length;i+=2){const k=arr[i],v=arr[i+1];o[k]=isFinite(v)?Number(v):v}return o}
