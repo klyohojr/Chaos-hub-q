@@ -1,59 +1,38 @@
-// /api/xp-write.js — secure KV writer (requires X-Write-Token)
 export default async function handler(req, res) {
-  if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); return res.status(405).json({ error: 'POST only' }); }
+  if (req.method !== 'POST') { res.setHeader('Allow','POST'); return res.status(405).json({ error:'POST only' }); }
 
-  const token = process.env.WRITE_TOKEN;
-  const provided = (req.headers['x-write-token'] || '').trim();
-  if (!token || provided !== token) return res.status(401).json({ error: 'Invalid token' });
+  const tokenHdr = (req.headers['x-write-token'] || '').trim();
+  if (!process.env.WRITE_TOKEN || tokenHdr !== process.env.WRITE_TOKEN)
+    return res.status(401).json({ error:'Invalid token' });
+
+  const BASE = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
+  const TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!BASE || !TOKEN) return res.status(500).json({ error: 'KV env vars missing' });
 
   try {
     const body = await readJson(req);
     const user = (body.user || '').trim();
-    if (!user) return res.status(400).json({ error: 'Missing body.user' });
+    if (!user) return res.status(400).json({ error:'Missing body.user' });
 
-    const doc = {
-      xp: Number(body.xp) || 0,
-      mischief: Number(body.mischief) || 0,
-      level: Number(body.level) || 0,
-      timestamp: body.timestamp || new Date().toISOString(),
-      source: 'assistant'
-    };
-
-    await kvWrite('HSET', [
-      `xp:${user}`,
-      'xp', String(doc.xp),
-      'mischief', String(doc.mischief),
-      'level', String(doc.level),
-      'timestamp', doc.timestamp,
-      'source', doc.source
-    ]);
-
-    return res.status(200).json({ ok: true });
-  } catch (e) {
-    return res.status(400).json({ error: 'Invalid JSON', detail: String(e) });
+    const resp = await fetch(
+      `${BASE}/hset/${encodeURIComponent('xp:'+user)}`,
+      {
+        method:'POST',
+        headers:{ Authorization:`Bearer ${TOKEN}`, 'Content-Type':'application/json' },
+        body: JSON.stringify([
+          'xp', String(Number(body.xp) || 0),
+          'mischief', String(Number(body.mischief) || 0),
+          'level', String(Number(body.level) || 0),
+          'timestamp', body.timestamp || new Date().toISOString(),
+          'source', 'assistant'
+        ])
+      }
+    );
+    const data = await resp.json();
+    if (data.error) return res.status(500).json(data);
+    return res.status(200).json({ ok:true });
+  } catch {
+    return res.status(400).json({ error:'Invalid JSON' });
   }
 }
-
-function readJson(req) {
-  return new Promise((resolve, reject) => {
-    let s = '';
-    req.on('data', c => (s += c));
-    req.on('end', () => { try { resolve(JSON.parse(s || '{}')); } catch (e) { reject(e); } });
-  });
-}
-
-// KV helpers
-function pickUrl() { return process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || process.env.KV_URL; }
-function pickWriteToken() { return process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN; }
-
-async function kvWrite(cmd, args) {
-  const url = pickUrl();
-  const token = pickWriteToken();
-  if (!url || !token) throw new Error('KV credentials missing for WRITE');
-  const resp = await fetch(url, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ cmd, args })
-  });
-  return resp.json();
-}
+function readJson(req){return new Promise((res,rej)=>{let s='';req.on('data',c=>s+=c);req.on('end',()=>{try{res(JSON.parse(s||'{}'))}catch(e){rej(e)}})})}
