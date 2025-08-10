@@ -1,4 +1,4 @@
-// /api/xp-write.js — secure writer (requires X-Write-Token), stores in KV
+// /api/xp-write.js — secure KV writer (requires X-Write-Token)
 export default async function handler(req, res) {
   if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); return res.status(405).json({ error: 'POST only' }); }
 
@@ -19,7 +19,7 @@ export default async function handler(req, res) {
       source: 'assistant'
     };
 
-    await kv('HSET', [
+    await kvWrite('HSET', [
       `xp:${user}`,
       'xp', String(doc.xp),
       'mischief', String(doc.mischief),
@@ -29,8 +29,8 @@ export default async function handler(req, res) {
     ]);
 
     return res.status(200).json({ ok: true });
-  } catch {
-    return res.status(400).json({ error: 'Invalid JSON' });
+  } catch (e) {
+    return res.status(400).json({ error: 'Invalid JSON', detail: String(e) });
   }
 }
 
@@ -42,19 +42,14 @@ function readJson(req) {
   });
 }
 
-async function kv(cmd, args) {
-  const url =
-    process.env.KV_REST_API_URL ||
-    process.env.UPSTASH_REDIS_REST_URL ||
-    process.env.KV_URL;
+// KV helpers
+function pickUrl() { return process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || process.env.KV_URL; }
+function pickWriteToken() { return process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN; }
 
-  const token =
-    process.env.KV_REST_API_TOKEN ||
-    process.env.UPSTASH_REDIS_REST_TOKEN ||
-    process.env.KV_REST_API_READ_ONLY_TOKEN; // token with write perms is best
-
-  if (!url || !token) throw new Error('KV credentials missing');
-
+async function kvWrite(cmd, args) {
+  const url = pickUrl();
+  const token = pickWriteToken();
+  if (!url || !token) throw new Error('KV credentials missing for WRITE');
   const resp = await fetch(url, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
