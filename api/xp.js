@@ -1,10 +1,9 @@
-// Read (GET) and app write (POST) via Upstash KV/Redis REST
+// /api/xp.js — Read (GET) and app write (POST) using Upstash KV via REST
 export default async function handler(req, res) {
   const user = (req.query.user || '').trim();
   if (!user) return res.status(400).json({ error: 'Missing ?user=' });
 
   if (req.method === 'POST') {
-    // App posts here without a token
     try {
       const body = await readJson(req);
       const doc = {
@@ -14,7 +13,8 @@ export default async function handler(req, res) {
         timestamp: body.timestamp || new Date().toISOString(),
         source: 'app'
       };
-      await kv('HSET', [`xp:${user}`,
+      await kv('HSET', [
+        `xp:${user}`,
         'xp', String(doc.xp),
         'mischief', String(doc.mischief),
         'level', String(doc.level),
@@ -36,21 +36,25 @@ export default async function handler(req, res) {
 function readJson(req) {
   return new Promise((resolve, reject) => {
     let s = '';
-    req.on('data', c => s += c);
-    req.on('end', () => { try { resolve(JSON.parse(s || '{}')); } catch (e) { reject(e); }});
+    req.on('data', c => (s += c));
+    req.on('end', () => { try { resolve(JSON.parse(s || '{}')); } catch (e) { reject(e); } });
   });
 }
 
-// ---- Upstash/Vercel KV REST helper (supports both env var names) ----
+// ---- Upstash/Vercel KV REST helper (supports multiple env var names) ----
 async function kv(cmd, args) {
   const url =
-    process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
-  const token =
-    process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+    process.env.KV_REST_API_URL ||
+    process.env.UPSTASH_REDIS_REST_URL ||
+    process.env.KV_URL; // some installs use KV_URL
 
-  if (!url || !token) {
-    throw new Error('KV credentials missing: add Upstash Redis to the project.');
-  }
+  const token =
+    process.env.KV_REST_API_TOKEN ||
+    process.env.UPSTASH_REDIS_REST_TOKEN ||
+    process.env.KV_REST_API_READ_ONLY_TOKEN; // read-only also works for HGETALL
+
+  if (!url || !token) throw new Error('KV credentials missing');
+
   const resp = await fetch(url, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
